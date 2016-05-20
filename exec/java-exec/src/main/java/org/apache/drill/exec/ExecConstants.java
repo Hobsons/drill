@@ -291,6 +291,9 @@ public interface ExecConstants {
   String ENABLE_BULK_LOAD_TABLE_LIST_KEY = "exec.enable_bulk_load_table_list";
   BooleanValidator ENABLE_BULK_LOAD_TABLE_LIST = new BooleanValidator(ENABLE_BULK_LOAD_TABLE_LIST_KEY, false);
 
+  String ANSI_QUOTES_KEY = "parser.ansi_quotes";
+  BooleanValidator ANSI_QUOTES = new BooleanValidator(ANSI_QUOTES_KEY, false);
+
   /**
    * Option whose value is a comma separated list of admin usernames. Admin users are users who have special privileges
    * such as changing system options.

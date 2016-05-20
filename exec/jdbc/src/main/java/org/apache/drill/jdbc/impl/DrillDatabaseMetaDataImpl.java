@@ -23,7 +23,13 @@ import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.sql.Statement;
 
+import net.hydromatic.avatica.AvaticaStatement;
+import org.apache.calcite.avatica.util.Quoting;
+import org.apache.drill.common.config.DrillConfig;
+import org.apache.drill.common.exceptions.DrillRuntimeException;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.jdbc.AlreadyClosedSqlException;
 import org.apache.drill.jdbc.DrillDatabaseMetaData;
 
@@ -36,6 +42,7 @@ import net.hydromatic.avatica.AvaticaDatabaseMetaData;
  */
 class DrillDatabaseMetaDataImpl extends AvaticaDatabaseMetaData
                                 implements DrillDatabaseMetaData {
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MetaImpl.class);
 
   protected DrillDatabaseMetaDataImpl( AvaticaConnection connection ) {
     super( connection );
@@ -219,11 +226,26 @@ class DrillDatabaseMetaDataImpl extends AvaticaDatabaseMetaData
     return super.storesMixedCaseQuotedIdentifiers();
   }
 
-  // TODO(DRILL-3510):  Update when Drill accepts standard SQL's double quote.
   @Override
   public String getIdentifierQuoteString() throws SQLException {
     throwIfClosed();
-    return "`";
+    boolean systemOption = false;
+    boolean sessionOption = false;
+    String sql = "select type, bool_val from sys.options where name = 'parser.ansi_quotes'";
+    ResultSet rs = executeSql(sql);
+    while (rs.next()) {
+      if (rs.getString(1).equals("SYSTEM")) {
+        systemOption = rs.getBoolean(2);
+      }
+      if (rs.getString(1).equals("SESSION")) {
+        sessionOption = rs.getBoolean(2);
+      }
+    }
+    if (systemOption || sessionOption) {
+      return Quoting.DOUBLE_QUOTE.string;
+    } else {
+      return Quoting.BACK_TICK.string;
+    }
   }
 
   @Override
@@ -1273,5 +1295,11 @@ class DrillDatabaseMetaDataImpl extends AvaticaDatabaseMetaData
     return super.generatedKeyAlwaysReturned();
   }
 
+  private ResultSet executeSql(String sql) throws SQLException {
+      logger.debug("Running {}", sql);
+      Statement statement = getConnection().createStatement();
+      statement.execute(sql);
+      return statement.getResultSet();
+  }
 
 }

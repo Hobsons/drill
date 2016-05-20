@@ -32,9 +32,11 @@ import org.junit.Test;
 import static java.sql.Connection.*;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Savepoint;
 import java.sql.SQLException;
+import java.sql.Statement;
 
 /**
  * Test for Drill's implementation of DatabaseMetaData's methods (other than
@@ -103,10 +105,32 @@ public class DatabaseMetaDataTest {
   //  storesMixedCaseQuotedIdentifiers()
 
 
-  // TODO(DRILL-3510):  Update when Drill accepts standard SQL's double quote.
   @Test
-  public void testGetIdentifierQuoteStringSaysBackquote() throws SQLException {
+  public void testGetIdentifierQuoteString() throws SQLException {
+    String resetSysOption = "ALTER SYSTEM RESET `parser.ansi_quotes`";
+    String resetSessionOption = "ALTER SESSION RESET `parser.ansi_quotes`";
+    String setSysOption = "ALTER SYSTEM SET `parser.ansi_quotes` = true" ;
+    String setSessionOption = "ALTER SESSION SET `parser.ansi_quotes` = true";
+
+    Statement statement = connection.createStatement();
+
+    try {
+    statement.execute(resetSysOption);
+    statement.execute(resetSessionOption);
     assertThat( dbmd.getIdentifierQuoteString(), equalTo( "`" ) );
+
+    statement.execute(setSysOption);
+    assertThat( dbmd.getIdentifierQuoteString(), equalTo( "\"" ) );
+
+    statement.execute(setSessionOption);
+    assertThat( dbmd.getIdentifierQuoteString(), equalTo( "\"" ) );
+
+    statement.execute(resetSysOption);
+    assertThat( dbmd.getIdentifierQuoteString(), equalTo( "\"" ) );
+    } finally {
+      statement.execute(resetSysOption);
+      statement.execute(resetSessionOption);
+    }
   }
 
 
