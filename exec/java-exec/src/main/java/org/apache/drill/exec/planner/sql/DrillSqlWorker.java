@@ -61,8 +61,7 @@ public class DrillSqlWorker {
         context.getNewDefaultSchema(),
         context.getDrillOperatorTable(),
         (UdfUtilities) context,
-        context.getFunctionRegistry(),
-        context.getOptions());
+        context.getFunctionRegistry());
 
     injector.injectChecked(context.getExecutionControls(), "sql-parsing", ForemanSetupException.class);
     final SqlNode sqlNode = parser.parse(sql);

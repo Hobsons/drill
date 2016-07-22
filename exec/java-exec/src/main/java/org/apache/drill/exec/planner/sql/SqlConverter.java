@@ -60,7 +60,6 @@ import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql2rel.RelDecorrelator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.ops.UdfUtilities;
 import org.apache.drill.exec.planner.cost.DrillCostBase;
@@ -69,7 +68,6 @@ import org.apache.drill.exec.planner.physical.DrillDistributionTraitDef;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.planner.physical.PrelUtil;
 import org.apache.drill.exec.planner.sql.parser.impl.DrillParserWithCompoundIdConverter;
-import org.apache.drill.exec.server.options.OptionManager;
 
 import com.google.common.base.Joiner;
 
@@ -94,7 +92,6 @@ public class SqlConverter {
   private final boolean isInnerQuery;
   private final UdfUtilities util;
   private final FunctionImplementationRegistry functions;
-  private final OptionManager options;
 
   private String sql;
   private VolcanoPlanner planner;
@@ -102,14 +99,13 @@ public class SqlConverter {
   private SqlParser.Config parserConfig;
 
 
-  public SqlConverter(PlannerSettings settings, SchemaPlus defaultSchema, final SqlOperatorTable operatorTable,
-      UdfUtilities util, FunctionImplementationRegistry functions, OptionManager options) {
+  public SqlConverter(PlannerSettings settings, SchemaPlus defaultSchema,
+      final SqlOperatorTable operatorTable, UdfUtilities util, FunctionImplementationRegistry functions) {
     this.settings = settings;
     this.util = util;
     this.functions = functions;
     this.sqlToRelConverterConfig = new SqlToRelConverterConfig();
-    this.options = options;
-    this.lex = options.getOption(ExecConstants.ANSI_QUOTES) ? Lex.MYSQL_ANSI : Lex.MYSQL;
+    this.lex = settings.isAnsiQuotesEnabled() ? Lex.MYSQL_ANSI : Lex.MYSQL;
     this.parserConfig = SqlParser.configBuilder()
                                  .setIdentifierMaxLength((int) this.settings.getIdentifierMaxLength())
                                  .setLex(lex)
@@ -145,7 +141,6 @@ public class SqlConverter {
     this.catalog = catalog;
     this.opTab = parent.opTab;
     this.planner = parent.planner;
-    this.options = parent.options;
     this.validator = new DrillValidator(opTab, catalog, typeFactory, SqlConformance.DEFAULT);
     validator.setIdentifierExpansion(true);
   }
@@ -159,7 +154,7 @@ public class SqlConverter {
 
       // Attempt to use default back_tick quote character for identifiers when
       // ANSI_QUOTES option is enabled and parsing with double quotes throws an exception
-      if (options.getOption(ExecConstants.ANSI_QUOTES) && lex == Lex.MYSQL_ANSI && sql.contains("`")) {
+      if (settings.isAnsiQuotesEnabled() && lex == Lex.MYSQL_ANSI) {
         lex = Lex.MYSQL;
         parserConfig = SqlParser.configBuilder()
                                 .setIdentifierMaxLength((int) this.settings.getIdentifierMaxLength())

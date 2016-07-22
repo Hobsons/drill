@@ -87,6 +87,7 @@ public class SystemOptionManager extends BaseOptionManager implements AutoClosea
       PlannerSettings.FILTER_MAX_SELECTIVITY_ESTIMATE_FACTOR,
       PlannerSettings.TYPE_INFERENCE,
       PlannerSettings.IN_SUBQUERY_THRESHOLD,
+      PlannerSettings.ANSI_QUOTES,
       ExecConstants.CAST_TO_NULLABLE_NUMERIC_OPTION,
       ExecConstants.OUTPUT_FORMAT_VALIDATOR,
       ExecConstants.PARQUET_BLOCK_SIZE_VALIDATOR,
@@ -145,8 +146,7 @@ public class SystemOptionManager extends BaseOptionManager implements AutoClosea
       ExecConstants.IMPLICIT_SUFFIX_COLUMN_LABEL_VALIDATOR,
       ExecConstants.IMPLICIT_FQN_COLUMN_LABEL_VALIDATOR,
       ExecConstants.IMPLICIT_FILEPATH_COLUMN_LABEL_VALIDATOR,
-      ExecConstants.CODE_GEN_EXP_IN_METHOD_SIZE_VALIDATOR,
-      ExecConstants.ANSI_QUOTES
+      ExecConstants.CODE_GEN_EXP_IN_METHOD_SIZE_VALIDATOR
     };
     final Map<String, OptionValidator> tmp = new HashMap<>();
     for (final OptionValidator validator : validators) {

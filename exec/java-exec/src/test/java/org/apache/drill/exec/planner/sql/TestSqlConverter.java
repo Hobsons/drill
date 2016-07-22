@@ -18,23 +18,24 @@
 package org.apache.drill.exec.planner.sql;
 
 import org.apache.drill.BaseTestQuery;
+import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.junit.Test;
 
 public class TestSqlConverter extends BaseTestQuery {
 
   @Test
-  public void testAnsiQuotes() throws Exception {
+  public void testAnsiQuotedIdentifiers() throws Exception {
     test("select 1 from cp.`/store/text/classpath_storage_csv_test.csv` limit 1");
     errorMsgTestHelper("select 1 from cp.\"/store/text/classpath_storage_csv_test.csv\" limit 1",
         "PARSE ERROR: Encountered \". \\\"\"");
     try {
-      test("ALTER SESSION SET `parser.ansi_quotes` = true");
+      test(String.format("ALTER SESSION SET `%s` = true", PlannerSettings.ANSI_QUOTES_KEY));
       test("select 1 from cp.\"/store/text/classpath_storage_csv_test.csv\" limit 1");
       test("select 1 from cp.`/store/text/classpath_storage_csv_test.csv` limit 1");
       test("select 1 from cp.`/store/text/classpath_storage_csv_test.csv` limit 1");
       test("select 1 from cp.\"/store/text/classpath_storage_csv_test.csv\" limit 1");
     } finally {
-      test("ALTER SESSION RESET \"parser.ansi_quotes\"");
+      test(String.format("ALTER SESSION RESET \"%s\"", PlannerSettings.ANSI_QUOTES_KEY));
     }
   }
 

@@ -23,6 +23,8 @@ import static org.junit.Assert.fail;
 import static org.junit.Assert.assertThat;
 import static org.hamcrest.CoreMatchers.*;
 
+import org.apache.calcite.avatica.util.Quoting;
+import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.jdbc.Driver;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -32,7 +34,6 @@ import org.junit.Test;
 import static java.sql.Connection.*;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Savepoint;
 import java.sql.SQLException;
@@ -107,26 +108,38 @@ public class DatabaseMetaDataTest {
 
   @Test
   public void testGetIdentifierQuoteString() throws SQLException {
-    String resetSysOption = "ALTER SYSTEM RESET `parser.ansi_quotes`";
-    String resetSessionOption = "ALTER SESSION RESET `parser.ansi_quotes`";
-    String setSysOption = "ALTER SYSTEM SET `parser.ansi_quotes` = true" ;
-    String setSessionOption = "ALTER SESSION SET `parser.ansi_quotes` = true";
+    final String resetSysOption = String.format("ALTER SYSTEM RESET `%s`", PlannerSettings.ANSI_QUOTES_KEY);
+    final String resetSessionOption = String.format("ALTER SESSION RESET `%s`", PlannerSettings.ANSI_QUOTES_KEY);
+    final String setSysOptionAsTrue = String.format("ALTER SYSTEM SET `%s` = true", PlannerSettings.ANSI_QUOTES_KEY);
+    final String setSessionOptionAsTrue = String.format("ALTER SESSION SET `%s` = true", PlannerSettings.ANSI_QUOTES_KEY);
+    final String setSessionOptionAsFalse = String.format("ALTER SESSION SET `%s` = false", PlannerSettings.ANSI_QUOTES_KEY);
 
     Statement statement = connection.createStatement();
-
     try {
-    statement.execute(resetSysOption);
-    statement.execute(resetSessionOption);
-    assertThat( dbmd.getIdentifierQuoteString(), equalTo( "`" ) );
+      // System ANSI_QUOTES option is disabled and session ANSI_QUOTES option is absent
+      statement.execute(resetSysOption);
+      statement.execute(resetSessionOption);
+      assertThat(dbmd.getIdentifierQuoteString(), equalTo(Quoting.BACK_TICK.string));
 
-    statement.execute(setSysOption);
-    assertThat( dbmd.getIdentifierQuoteString(), equalTo( "\"" ) );
+      // System ANSI_QUOTES option is enabled and session ANSI_QUOTES option is absent
+      statement.execute(setSysOptionAsTrue);
+      assertThat(dbmd.getIdentifierQuoteString(), equalTo(Quoting.DOUBLE_QUOTE.string));
 
-    statement.execute(setSessionOption);
-    assertThat( dbmd.getIdentifierQuoteString(), equalTo( "\"" ) );
+      // System ANSI_QUOTES option is enabled and session ANSI_QUOTES option is disabled
+      statement.execute(setSessionOptionAsFalse);
+      assertThat(dbmd.getIdentifierQuoteString(), equalTo(Quoting.BACK_TICK.string));
 
-    statement.execute(resetSysOption);
-    assertThat( dbmd.getIdentifierQuoteString(), equalTo( "\"" ) );
+      // System ANSI_QUOTES option is disabled and session ANSI_QUOTES option is disabled
+      statement.execute(resetSysOption);
+      assertThat(dbmd.getIdentifierQuoteString(), equalTo(Quoting.BACK_TICK.string));
+
+      // System ANSI_QUOTES option is disabled and session ANSI_QUOTES option is enabled
+      statement.execute(setSessionOptionAsTrue);
+      assertThat(dbmd.getIdentifierQuoteString(), equalTo(Quoting.DOUBLE_QUOTE.string));
+
+      // System ANSI_QUOTES option is enabled and session ANSI_QUOTES option is enabled
+      statement.execute(setSysOptionAsTrue);
+      assertThat(dbmd.getIdentifierQuoteString(), equalTo(Quoting.DOUBLE_QUOTE.string));
     } finally {
       statement.execute(resetSysOption);
       statement.execute(resetSessionOption);
