@@ -24,6 +24,7 @@ import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 
+import org.apache.calcite.avatica.util.Quoting;
 import org.apache.drill.jdbc.AlreadyClosedSqlException;
 import org.apache.drill.jdbc.DrillDatabaseMetaData;
 
@@ -219,11 +220,11 @@ class DrillDatabaseMetaDataImpl extends AvaticaDatabaseMetaData
     return super.storesMixedCaseQuotedIdentifiers();
   }
 
-  // TODO(DRILL-3510):  Update when Drill accepts standard SQL's double quote.
   @Override
   public String getIdentifierQuoteString() throws SQLException {
     throwIfClosed();
-    return "`";
+    DrillConnectionImpl connection = (DrillConnectionImpl) getConnection();
+    return connection.useAnsiQuotedIdentifiers() ? Quoting.DOUBLE_QUOTE.string : Quoting.BACK_TICK.string;
   }
 
   @Override

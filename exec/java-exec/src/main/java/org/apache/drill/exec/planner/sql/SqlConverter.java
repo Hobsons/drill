@@ -25,6 +25,7 @@ import com.google.common.collect.Sets;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.avatica.util.Casing;
 import org.apache.calcite.avatica.util.Quoting;
+import org.apache.calcite.config.Lex;
 import org.apache.calcite.jdbc.CalciteSchemaImpl;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.plan.ConventionTraitDef;
@@ -79,7 +80,6 @@ public class SqlConverter {
   private static DrillTypeSystem DRILL_TYPE_SYSTEM = new DrillTypeSystem();
 
   private final JavaTypeFactory typeFactory;
-  private final SqlParser.Config parserConfig;
   // Allow the default config to be modified using immutable configs
   private SqlToRelConverter.Config sqlToRelConverterConfig;
   private final CalciteCatalogReader catalog;
@@ -95,6 +95,8 @@ public class SqlConverter {
 
   private String sql;
   private VolcanoPlanner planner;
+  private Lex lex;
+  private SqlParser.Config parserConfig;
 
 
   public SqlConverter(PlannerSettings settings, SchemaPlus defaultSchema,
@@ -102,8 +104,13 @@ public class SqlConverter {
     this.settings = settings;
     this.util = util;
     this.functions = functions;
-    this.parserConfig = new ParserConfig();
     this.sqlToRelConverterConfig = new SqlToRelConverterConfig();
+    this.lex = settings.isAnsiQuotesEnabled() ? Lex.MYSQL_ANSI : Lex.MYSQL;
+    this.parserConfig = SqlParser.configBuilder()
+                                 .setIdentifierMaxLength((int) this.settings.getIdentifierMaxLength())
+                                 .setLex(lex)
+                                 .setParserFactory(DrillParserWithCompoundIdConverter.FACTORY)
+                                 .build();
     this.isInnerQuery = false;
     this.typeFactory = new JavaTypeFactoryImpl(DRILL_TYPE_SYSTEM);
     this.defaultSchema = defaultSchema;
@@ -144,6 +151,24 @@ public class SqlConverter {
       SqlParser parser = SqlParser.create(sql, parserConfig);
       return parser.parseStmt();
     } catch (SqlParseException e) {
+
+      // Attempt to use default back_tick quote character for identifiers when
+      // ANSI_QUOTES option is enabled and parsing with double quotes throws an exception
+      if (settings.isAnsiQuotesEnabled() && lex == Lex.MYSQL_ANSI) {
+        lex = Lex.MYSQL;
+        parserConfig = SqlParser.configBuilder()
+                                .setIdentifierMaxLength((int) this.settings.getIdentifierMaxLength())
+                                .setLex(lex)
+                                .setParserFactory(DrillParserWithCompoundIdConverter.FACTORY)
+                                .build();
+        try {
+          SqlParser parser = SqlParser.create(sql, parserConfig);
+          return parser.parseStmt();
+        } catch (SqlParseException e1) {
+          // Since back_tick also doesn't work proceed with original "e" exception
+        }
+      }
+
       UserException.Builder builder = UserException
           .parseError(e)
           .addContext("SQL Query", formatSQLParsingError(sql, e.getPos()));
@@ -312,41 +337,6 @@ public class SqlConverter {
 
   }
 
-  private class ParserConfig implements SqlParser.Config {
-
-    final long identifierMaxLength = settings.getIdentifierMaxLength();
-
-    @Override
-    public int identifierMaxLength() {
-      return (int) identifierMaxLength;
-    }
-
-    @Override
-    public Casing quotedCasing() {
-      return Casing.UNCHANGED;
-    }
-
-    @Override
-    public Casing unquotedCasing() {
-      return Casing.UNCHANGED;
-    }
-
-    @Override
-    public Quoting quoting() {
-      return Quoting.BACK_TICK;
-    }
-
-    @Override
-    public boolean caseSensitive() {
-      return false;
-    }
-
-    @Override
-    public SqlParserImplFactory parserFactory() {
-      return DrillParserWithCompoundIdConverter.FACTORY;
-    }
-
-  }
 
   private class SqlToRelConverterConfig implements SqlToRelConverter.Config {
 

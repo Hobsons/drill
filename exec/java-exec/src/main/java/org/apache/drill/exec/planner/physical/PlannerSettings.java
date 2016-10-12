@@ -99,6 +99,9 @@ public class PlannerSettings implements Context{
   public static final LongValidator IN_SUBQUERY_THRESHOLD =
       new PositiveLongValidator("planner.in_subquery_threshold", Integer.MAX_VALUE, 20); /* Same as Calcite's default IN List subquery size */
 
+  public static final String ANSI_QUOTES_KEY = "planner.parser.ansi_quotes";
+  public static final BooleanValidator ANSI_QUOTES = new BooleanValidator(ANSI_QUOTES_KEY, false);
+
   public OptionManager options = null;
   public FunctionImplementationRegistry functionImplementationRegistry = null;
 
@@ -245,6 +248,10 @@ public class PlannerSettings implements Context{
 
   public boolean isUnionAllDistributeEnabled() {
     return options.getOption(UNIONALL_DISTRIBUTE);
+  }
+
+  public boolean isAnsiQuotesEnabled() {
+    return options.getOption(ANSI_QUOTES);
   }
 
   @Override

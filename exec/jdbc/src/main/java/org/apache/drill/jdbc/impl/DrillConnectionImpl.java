@@ -25,6 +25,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.NClob;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -57,6 +58,7 @@ import org.apache.drill.exec.memory.RootAllocatorFactory;
 import org.apache.drill.exec.proto.UserProtos.CreatePreparedStatementResp;
 import org.apache.drill.exec.proto.UserProtos.RequestStatus;
 import org.apache.drill.exec.rpc.DrillRpcFuture;
+import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.exec.server.Drillbit;
 import org.apache.drill.exec.server.RemoteServiceSet;
@@ -88,6 +90,8 @@ class DrillConnectionImpl extends AvaticaConnection
   private Drillbit bit;
   private RemoteServiceSet serviceSet;
 
+  /** Has ANSI_QUOTES been enabled on the server? */
+  private boolean useAnsiQuotes = false;
 
   protected DrillConnectionImpl(DriverImpl driver, AvaticaFactory factory,
                                 String url, Properties info) throws SQLException {
@@ -153,6 +157,7 @@ class DrillConnectionImpl extends AvaticaConnection
         this.client = new DrillClient();
         this.client.connect(config.getZookeeperConnectionString(), info);
       }
+      this.useAnsiQuotes = useAnsiQuotedIdentifiers();
     } catch (OutOfMemoryException e) {
       throw new SQLException("Failure creating root allocator", e);
     } catch (RpcException e) {
@@ -798,6 +803,24 @@ class DrillConnectionImpl extends AvaticaConnection
     }
   }
 
+  @Override
+  public boolean useAnsiQuotedIdentifiers() throws SQLException {
+    boolean systemOption = false;
+    Boolean sessionOption = null;
+    String sql = String.format("select type, bool_val from sys.options where name = '%s'",
+        PlannerSettings.ANSI_QUOTES_KEY);
+    ResultSet rs = executeSql(sql);
+    while (rs.next()) {
+      if (rs.getString(1).equals("SYSTEM")) {
+        systemOption = rs.getBoolean(2);
+      }
+      if (rs.getString(1).equals("SESSION")) {
+        sessionOption = rs.getBoolean(2);
+      }
+    }
+    return (sessionOption != null) ? sessionOption : systemOption;
+  }
+
 
 
   // do not make public
@@ -808,6 +831,13 @@ class DrillConnectionImpl extends AvaticaConnection
   // do not make public
   AvaticaFactory getFactory() {
     return factory;
+  }
+
+  private ResultSet executeSql(String sql) throws SQLException {
+    logger.debug("Running {}", sql);
+    Statement statement = this.createStatement();
+    statement.execute(sql);
+    return statement.getResultSet();
   }
 
   private static void closeOrWarn(final AutoCloseable autoCloseable, final String message, final Logger logger) {
